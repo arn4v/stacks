@@ -7,6 +7,7 @@ use scru128::Scru128Id;
 
 use crate::content_type::process_command;
 use crate::spotlight;
+use crate::spotlight::EnterBehavior;
 use crate::spotlight::Shortcut;
 use crate::state::SharedState;
 use crate::store::{
@@ -14,6 +15,8 @@ use crate::store::{
 };
 use crate::ui::{generate_preview, with_meta, Item as UIItem, Nav, UI};
 use crate::view::View;
+use rdev::{simulate, Button, EventType, Key, SimulateError};
+use std::{thread, time};
 
 #[derive(Debug, Clone, serde::Serialize)]
 struct ExecStatus {
@@ -736,6 +739,51 @@ pub fn write_to_clipboard(mime_type: &str, data: &[u8]) -> Option<i64> {
     }
 }
 
+fn send_global_event(event_type: &EventType) {
+    let delay = time::Duration::from_millis(20);
+    match simulate(event_type) {
+        Ok(()) => (),
+        Err(SimulateError) => {
+            println!("We could not send {:?}", event_type);
+        }
+    }
+    // Let ths OS catchup (at least MacOS)
+    thread::sleep(delay);
+}
+
+#[tauri::command]
+#[tracing::instrument(skip(app, state))]
+pub fn restore_focus_on_previous_app_and_paste(
+    app: tauri::AppHandle,
+    state: tauri::State<SharedState>,
+    source_id: scru128::Scru128Id,
+) -> Option<()> {
+    state.with_lock(|state| {
+        if let Some(item) = state.view.items.get(&source_id) {
+            let meta = state.store.get_content_meta(&item.hash).unwrap();
+
+            let mime_type = match &meta.mime_type {
+                MimeType::TextPlain => "public.utf8-plain-text",
+                MimeType::ImagePng => "public.png",
+            };
+            let content = state.store.get_content(&item.hash).unwrap();
+
+            let _change_num = write_to_clipboard(mime_type, &content);
+            let window = app.get_window("main").unwrap();
+            spotlight::hide(&window).unwrap();
+
+            // send_global_event(&EventType::KeyPress(Key::ControlLeft));
+            // send_global_event(&EventType::KeyPress(Key::KeyV));
+            // send_global_event(&EventType::KeyRelease(Key::KeyV));
+            // send_global_event(&EventType::KeyRelease(Key::ControlLeft));
+
+            Some(())
+        } else {
+            None
+        }
+    })
+}
+
 #[tauri::command]
 #[tracing::instrument(skip(state))]
 pub fn store_copy_to_clipboard(
@@ -1127,6 +1175,41 @@ pub fn spotlight_get_shortcut(state: tauri::State<'_, SharedState>) -> Shortcut 
                 command: false,
             })
     })
+}
+
+#[tauri::command]
+#[tracing::instrument(skip(state))]
+pub fn spotlight_get_enter_behavior(state: tauri::State<'_, SharedState>) -> String {
+    state.with_lock(|state| {
+        let settings = state.store.settings_get();
+        settings
+            .and_then(|s| match s.enter_behavior {
+                Some(EnterBehavior::Copy) => Some("c"),
+                Some(EnterBehavior::Paste) => Some("p"),
+                None => Some("c"),
+            })
+            .unwrap_or("c")
+            .to_string()
+    })
+}
+
+#[tauri::command]
+#[tracing::instrument(skip(state, _app))]
+pub fn spotlight_update_enter_behavior(
+    state: tauri::State<'_, SharedState>,
+    _app: tauri::AppHandle,
+    behavior: &str,
+) {
+    state.with_lock(|state| {
+        let mut settings = state.store.settings_get().unwrap_or_default();
+        let _behavior = match behavior {
+            "c" => EnterBehavior::Copy,
+            "p" => EnterBehavior::Paste,
+            _ => EnterBehavior::Copy,
+        };
+        settings.enter_behavior = Some(_behavior.clone());
+        state.store.settings_save(settings);
+    });
 }
 
 #[tauri::command]

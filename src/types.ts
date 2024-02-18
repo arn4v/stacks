@@ -73,22 +73,19 @@ export const ContentCache = (() => {
         console.log("streaming", id, content);
         const cache = byId(id);
         cache.value = content;
-      },
+      }
     );
 
-    const d2 = await listen(
-      "content",
-      (event: { payload: SSRI }) => {
-        const hash = event.payload;
-        console.log("content", hash);
-        let ret = hashCache.get(hash);
-        if (ret) {
-          (async () => {
-            ret.value = await invoke("store_get_content", { hash: hash });
-          })();
-        }
-      },
-    );
+    const d2 = await listen("content", (event: { payload: SSRI }) => {
+      const hash = event.payload;
+      console.log("content", hash);
+      let ret = hashCache.get(hash);
+      if (ret) {
+        (async () => {
+          ret.value = await invoke("store_get_content", { hash: hash });
+        })();
+      }
+    });
 
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
@@ -223,10 +220,18 @@ export class Stack {
   async triggerCopy() {
     const item = this.selected();
     if (!item) return;
-    await invoke("store_copy_to_clipboard", {
-      sourceId: item.id,
-    });
-    await invoke("spotlight_hide");
+
+    const enterBehavior = (await invoke("spotlight_get_enter_behavior")) || "c";
+    if (enterBehavior === "p") {
+      await invoke("restore_focus_on_previous_app_and_paste", {
+        sourceId: item.id,
+      });
+    } else {
+      await invoke("store_copy_to_clipboard", {
+        sourceId: item.id,
+      });
+      await invoke("spotlight_hide");
+    }
   }
 
   async select(id: string) {

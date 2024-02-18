@@ -235,6 +235,7 @@ pub struct Settings {
     pub openai_selected_model: String,
     pub cross_stream_access_token: Option<String>,
     pub activation_shortcut: Option<spotlight::Shortcut>,
+    pub enter_behavior: Option<spotlight::EnterBehavior>,
 }
 
 impl Default for Settings {
@@ -244,6 +245,7 @@ impl Default for Settings {
             openai_selected_model: String::new(),
             cross_stream_access_token: None,
             activation_shortcut: None,
+            enter_behavior: None,
         }
     }
 }

@@ -20,6 +20,12 @@ pub struct Shortcut {
     pub command: bool,
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub enum EnterBehavior {
+    Copy,
+    Paste,
+}
+
 impl Shortcut {
     // Method to generate a macOS-compatible shortcut string
     pub fn to_macos_shortcut(&self) -> String {
