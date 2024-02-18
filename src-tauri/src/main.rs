@@ -139,6 +139,9 @@ async fn main() {
             commands::store_mark_as_cross_stream,
             commands::spotlight_update_shortcut,
             commands::spotlight_get_shortcut,
+            commands::spotlight_get_enter_behavior,
+            commands::spotlight_update_enter_behavior,
+            commands::restore_focus_on_previous_app_and_paste,
             commands::spotlight_hide,
         ])
         .setup(|app| {

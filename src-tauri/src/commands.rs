@@ -15,6 +15,7 @@ use crate::store::{
 };
 use crate::ui::{generate_preview, with_meta, Item as UIItem, Nav, UI};
 use crate::view::View;
+use macos_accessibility_client::accessibility;
 use rdev::{simulate, Button, EventType, Key, SimulateError};
 use std::{thread, time};
 
@@ -772,10 +773,21 @@ pub fn restore_focus_on_previous_app_and_paste(
             let window = app.get_window("main").unwrap();
             spotlight::hide(&window).unwrap();
 
-            // send_global_event(&EventType::KeyPress(Key::ControlLeft));
-            // send_global_event(&EventType::KeyPress(Key::KeyV));
-            // send_global_event(&EventType::KeyRelease(Key::KeyV));
-            // send_global_event(&EventType::KeyRelease(Key::ControlLeft));
+            #[cfg(target_os = "macos")]
+            {
+                // app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                let trusted =
+                    macos_accessibility_client::accessibility::application_is_trusted_with_prompt();
+
+                println!("Trusted: {}", trusted);
+
+                if trusted {
+                    send_global_event(&EventType::KeyPress(Key::MetaLeft));
+                    send_global_event(&EventType::KeyPress(Key::KeyV));
+                    send_global_event(&EventType::KeyRelease(Key::KeyV));
+                    send_global_event(&EventType::KeyRelease(Key::MetaLeft));
+                }
+            }
 
             Some(())
         } else {
